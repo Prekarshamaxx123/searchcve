@@ -190,7 +190,7 @@ done
 
 ---
 
-## Configuration & Environment Variables
+## IF YOU WANT Configuration & Environment Variables ( Optional )
 
 | Variable | Default | Description |
 | :--- | :--- | :--- |
