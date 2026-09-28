@@ -1,0 +1,266 @@
+Metadata-Version: 2.4
+Name: searchcve
+Version: 1.0.0
+Summary: A SearchSploit-style CLI tool for searching CVEs live via the NVD API
+Author: SearchCVE Team
+License: MIT
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Information Technology
+Classifier: Intended Audience :: System Administrators
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Security
+Classifier: Topic :: Utilities
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0.0; extra == "dev"
+Dynamic: license-file
+
+# SearchCVE
+
+A fast, lightweight, SearchSploit-style command-line interface tool for searching Common Vulnerabilities and Exposures (CVEs) live via the official National Vulnerability Database (NVD) REST API 2.0.
+
+> **Zero Local Database**: SearchCVE does **not** download, synchronize, or store a local CVE database (no SQLite, MySQL, PostgreSQL, MongoDB, or Redis). All queries are executed in real time against the NVD API with in-memory filtering.
+
+---
+
+## Features
+
+- **SearchSploit-Style Terminal UX**: Clean, aligned two-column terminal table (`CVE | Description`).
+- **Live Queries**: Always fresh data directly from the official NVD API 2.0 without periodic database updates.
+- **Description Matching**: Case-insensitive substring matching against CVE descriptions by default.
+- **Exact Keyword Mode**: `--exact` flag for whole-word boundary matching.
+- **Direct CVE Lookup**: Automatic detection and retrieval of specific CVE IDs (e.g., `CVE-2021-44228`).
+- **Time Filtering**: Filter by year (`--year 2026`) or date ranges (`--from YYYY-MM-DD --to YYYY-MM-DD`).
+- **Flexible Result Sizing**:
+  - `--last N`: Sort by newest publication date descending and return top `N`.
+  - `--limit N`: Cap search results at `N` and terminate API pagination as soon as satisfied.
+- **Automation Ready**:
+  - `--json`: Valid, machine-readable JSON output (`[{"cve": "...", "description": "..."}]`) suitable for piping into `jq` or file redirects.
+  - `--quiet`: Output only matching CVE IDs, one per line, for Unix pipes.
+- **Robust Network Engine**: Automatic HTTP connection reuse, timeout handling, exponential backoff on HTTP 429 rate limits, and transient server error retries.
+- **Zero External Runtime Dependencies**: Built entirely using Python's standard library.
+
+---
+
+## Requirements
+
+- Python 3.11 or newer
+
+---
+
+## Installation
+
+### Standard Installation
+
+Clone the repository and install using `pip`:
+
+```bash
+git clone https://github.com/your-username/searchcve.git
+cd searchcve
+pip install .
+```
+
+This installs the `searchcve` binary directly into your environment.
+
+### Development Mode
+
+For local development or testing without installing the package globally:
+
+```bash
+python -m searchcve <keyword>
+```
+
+---
+
+## Usage
+
+```text
+SearchCVE - Live NVD CVE Search Tool
+
+Usage:
+  searchcve <keyword> [options]
+
+Options:
+  --last N              Show newest N matching CVEs (sorted by date descending)
+  --limit N             Limit number of results (stops pagination early)
+  --year YEAR           Filter by publication year (e.g., 2025, 2026)
+  --from DATE           Start date YYYY-MM-DD
+  --to DATE             End date YYYY-MM-DD
+  --exact               Exact keyword matching (word boundaries)
+  --json                Output JSON
+  --quiet               Output CVE IDs only
+  --debug               Show debug logs and full tracebacks
+  --version             Show version
+  -h, --help            Show help
+```
+
+---
+
+## Examples
+
+### 1. Basic Search
+
+Search for CVEs mentioning a keyword in their description:
+
+```bash
+searchcve openclaw
+```
+
+Output:
+```text
+SearchCVE v1.0.0
+────────────────────────────────────────────────────────────────────────────────
+Query: openclaw
+
+CVSS   CVE               Description
+────────────────────────────────────────────────────────────────────────────────
+ 7.5   CVE-2026-12345    OpenClaw contains a vulnerability that allows remote code e...
+
+ 9.8   CVE-2026-12346    A vulnerability in OpenClaw allows denial of service.
+
+   -   CVE-2025-98765    OpenClaw is affected by improper input validation.
+────────────────────────────────────────────────────────────────────────────────
+Found: 3 CVEs
+```
+
+### 2. Newest Matching CVEs (`--last N`)
+
+Retrieve the 10 newest CVEs matching "apache" sorted by publication date descending:
+
+```bash
+searchcve apache --last 10
+```
+
+### 3. Capped Results (`--limit N`)
+
+Limit to the first 20 results (stops querying NVD as soon as 20 matches are found):
+
+```bash
+searchcve wordpress --limit 20
+```
+
+> **Note:** `--last` and `--limit` are mutually exclusive. Use `--last` when sorting newest first, and `--limit` to truncate candidate retrieval.
+
+### 4. Year and Date-Range Filtering
+
+Filter by publication year:
+
+```bash
+searchcve apache --year 2026
+```
+
+Filter by custom start and end dates:
+
+```bash
+searchcve openssh --from 2025-01-01 --to 2026-09-28
+```
+
+Open-ended start date:
+
+```bash
+searchcve openssl --from 2025-01-01
+```
+
+### 5. Specific CVE ID Lookup
+
+When the query matches the standard CVE format (`CVE-YYYY-NNNNN`), SearchCVE performs a targeted direct lookup:
+
+```bash
+searchcve CVE-2021-44228
+```
+
+### 6. Exact Keyword Matching (`--exact`)
+
+Avoid substring false positives (e.g., matching "cat" but not "certificate" or "catalog"):
+
+```bash
+searchcve cat --exact
+```
+
+### 7. Scripting and Automation
+
+#### JSON Output:
+```bash
+searchcve log4j --json > results.json
+```
+
+Output structure:
+```json
+[
+  {
+    "cve": "CVE-2021-44228",
+    "description": "Apache Log4j2 2.0-beta9 through 2.15.0 (excluding 2.12.2 ...) JNDI features used in configuration, log messages, and parameters do not protect against attacker controlled LDAP and other JNDI related endpoints."
+  }
+]
+```
+
+#### Quiet Mode (CVE IDs only):
+```bash
+searchcve wordpress --quiet | while read -r cve; do
+    echo "Processing $cve"
+done
+```
+
+---
+
+## Configuration & Environment Variables
+
+| Variable | Default | Description |
+| :--- | :--- | :--- |
+| `NVD_API_KEY` | None | NVD API key. Significantly raises rate limits from NIST. |
+| `SEARCHCVE_TIMEOUT` | `15.0` | HTTP connection and socket timeout in seconds. |
+| `SEARCHCVE_MAX_RESULTS` | `1000` | Safety limit on maximum candidate CVEs retrieved during a single search. |
+| `NO_COLOR` | None | Set to any non-empty value to disable ANSI terminal colors. |
+
+### Configuring an NVD API Key
+
+By default, the NVD public rate limit without an API key allows up to 5 requests in a rolling 30-second window. With an API key, NIST allows up to 50 requests in a rolling 30-second window.
+
+You can request a free API key at [https://nvd.nist.gov/developers/request-an-api-key](https://nvd.nist.gov/developers/request-an-api-key).
+
+Export your key in your shell configuration (`~/.bashrc` or `~/.zshrc`):
+
+```bash
+export NVD_API_KEY="your-nvd-api-key-here"
+```
+
+SearchCVE automatically attaches the key via the `apiKey` request header.
+
+---
+
+## Rate Limiting & Network Resilience
+
+- **Automatic Exponential Backoff**: When HTTP 429 ("Too Many Requests") is returned, SearchCVE parses the `Retry-After` header (if provided) or backs off exponentially (6s, 12s, 24s) up to 3 retry attempts before raising a clean notification.
+- **Transient Error Handling**: HTTP 500, 502, 503, and 504 server errors are retried automatically.
+- **Clean Error Output**: Stack traces are suppressed unless `--debug` is explicitly supplied.
+
+---
+
+## Development & Testing
+
+Run unit tests locally using `pytest`:
+
+```bash
+# Run all tests
+python3 -m pytest -v
+
+# Run a specific test module
+python3 -m pytest tests/test_search.py -v
+```
+
+All unit tests use mock responses and do not hit the live NVD API.
+
+---
+
+## License
+
+This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
