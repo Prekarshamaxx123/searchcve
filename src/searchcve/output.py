@@ -208,6 +208,7 @@ def format_table(
 
     # Title & query header
     lines.append(f"{color.bold('SearchCVE')} {color.dim(f'v{__version__}')}")
+    lines.append(f"Owner - {color.cyan('https://github.com/Prekarshamaxx123')}")
     lines.append(get_divider("─", max_line_width))
     lines.append(f"Query: {color.cyan(options.query)}")
     lines.append("")

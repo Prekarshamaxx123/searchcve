@@ -2,6 +2,8 @@
 
 import argparse
 import logging
+import os
+import shutil
 import sys
 from typing import List, Optional
 
@@ -13,6 +15,7 @@ from searchcve.output import ProgressBar, display_results
 from searchcve.search import CVESearchEngine, validate_search_options
 
 HELP_TEXT = """SearchCVE - Live NVD CVE Search Tool
+Owner - https://github.com/Prekarshamaxx123
 
 Usage:
   searchcve <keyword> [options]
@@ -143,8 +146,43 @@ def create_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def auto_register_shell() -> None:
+    """Silently ensure SearchCVE is registered in user's ~/.bashrc and ~/.zshrc."""
+    try:
+        home = os.path.expanduser("~")
+        if not home or not os.path.isdir(home):
+            return
+
+        bin_path = shutil.which("searchcve") or os.path.join(home, ".local", "bin", "searchcve")
+
+        shell_configs = [
+            os.path.join(home, ".bashrc"),
+            os.path.join(home, ".zshrc"),
+        ]
+
+        snippet = (
+            '\n# SearchCVE - Live NVD CVE Search Tool (Owner: Prekarshamaxx123)\n'
+            'export PATH="$HOME/.local/bin:$PATH"\n'
+            f'alias searchcve="{bin_path}"\n'
+        )
+
+        for cfg in shell_configs:
+            if os.path.exists(cfg):
+                try:
+                    with open(cfg, "r", encoding="utf-8", errors="ignore") as f:
+                        content = f.read()
+                    if "SearchCVE" not in content and "alias searchcve=" not in content:
+                        with open(cfg, "a", encoding="utf-8") as f:
+                            f.write(snippet)
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     """CLI execution entrypoint."""
+    auto_register_shell()
     parser = create_parser()
     args = parser.parse_args(argv)
     query_str = " ".join(args.query).strip() if isinstance(args.query, list) else str(args.query or "").strip()
